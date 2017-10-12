@@ -17,11 +17,15 @@ from flask_cors import *
 
 #日志
 import logging
+import logging.handlers
 
 app = Flask(__name__);
 CORS(app, supports_credentials=True);
 
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s [%(lineno)d] - %(message)s')
+
 file_handler = logging.FileHandler('psutil.log')
+file_handler.setFormatter(formatter)
 app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
 
