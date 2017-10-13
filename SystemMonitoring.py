@@ -9,9 +9,11 @@
 from flask import Flask,jsonify,abort,make_response,request
 
 import psutil
+#os
 import platform
 from collections import OrderedDict
-
+#net
+import netifaces
 #cors 跨域访问
 from flask_cors import *
 
@@ -160,17 +162,89 @@ def get_disk():
 @app.route('/system/network', methods=['GET'])
 def get_network():
     app.logger.info('enter get_network');
-
-    network={
-        'bytes_sent 发送字节数': psutil.net_io_counters().bytes_sent,
-		'bytes_recv 接收字节数': psutil.net_io_counters().bytes_recv,
-		'packets_sent 发送包个数': psutil.net_io_counters().packets_sent,
-		'packets_recv 接收包个数': psutil.net_io_counters().packets_recv,
-		'errout 发送数据包错误总数': psutil.net_io_counters().errout,
-		'dropin 接收时丢弃的数据包的总数': psutil.net_io_counters().dropin,
-    };
+	
+    routingGateway=netifaces.gateways()['default'][netifaces.AF_INET][0] 
+    routingNicName=netifaces.gateways()['default'][netifaces.AF_INET][1] #eth0
+    routingNicMacAddr = netifaces.ifaddresses(routingNicName)[netifaces.AF_LINK][0]['addr']
+    routingIPAddr =netifaces.ifaddresses(routingNicName)[netifaces.AF_INET][0]['addr']
+    routingIPNetmask=netifaces.ifaddresses(routingNicName)[netifaces.AF_INET][0]['netmask']
+	
+	#获取网卡多个ip
+	#psutil.net_io_counters(pernic=True)[routingNicName]
+	
+	#['lo0', 'gif0', 'stf0', 'en0', 'en1', 'fw0']
+    networks=[];
+    length = len(netifaces.interfaces());
+    for i in range(length):
+        Nicname = netifaces.interfaces()[i];
+		
+        Gateway = "";
+        MacAddr = "";
+        IpAddr = "";
+        IPNetmask="";
+        #bytes_sent=0;
+        #bytes_recv=0;
+        #packets_sent=0;
+        #packets_recv=0;
+		
+        try:
+            if ":" not in Nicname:
+                MacAddr = netifaces.ifaddresses(Nicname)[netifaces.AF_LINK][0]['addr'];
+            
+            IpAddr = netifaces.ifaddresses(Nicname)[netifaces.AF_INET][0]['addr'];
+            IPNetmask=netifaces.ifaddresses(routingNicName)[netifaces.AF_INET][0]['netmask'];
+			
+            if "lo" in Nicname:
+                Gateway = netifaces.ifaddresses(Nicname)[netifaces.AF_INET][0]['peer'];
+            else:
+                Gateway = netifaces.ifaddresses(Nicname)[netifaces.AF_INET][0]['broadcast'];
+			
+            #if ":" not in Nicname:
+            #    bytes_sent = psutil.net_io_counters(pernic=True)[Nicname].bytes_sent,
+            #    bytes_recv = psutil.net_io_counters(pernic=True)[Nicname].bytes_recv,
+            #    packets_sent = psutil.net_io_counters(pernic=True)[Nicname].packets_sent,
+            #    packets_recv = psutil.net_io_counters(pernic=True)[Nicname].packets_recv,
+			
+            
+        except KeyError:
+            pass
+        
+        if ":" in Nicname:
+            network = {
+                'Nicname 网卡名称':Nicname,
+                'Gateway 网关':Gateway,
+                'ip地址':IpAddr,
+                'Netmask 网络掩码':IPNetmask,
+		    }
+        else:
+            network = {
+                'Nicname 网卡名称':Nicname,
+                'Gateway 网关':Gateway,
+                'NIcMacAddr 网卡mac地址':MacAddr,
+                'ip地址':IpAddr,
+                'Netmask 网络掩码':IPNetmask,	
+                'bytes_sent 发送字节数': psutil.net_io_counters(pernic=True)[Nicname].bytes_sent,
+                'bytes_recv 接收字节数': psutil.net_io_counters(pernic=True)[Nicname].bytes_recv,
+                'packets_sent 发送包个数': psutil.net_io_counters(pernic=True)[Nicname].packets_sent,
+                'packets_recv 接收包个数': psutil.net_io_counters(pernic=True)[Nicname].packets_recv,
+		    }
+        networks.append(network)	
+    return jsonify({'networks': networks});
+	
+    #networks={
+    #    'Nicname 网卡名称':routingNicName,
+    #    'Gateway 网关':routingGateway,
+    #    'NIcMacAddr 网卡mac地址':routingNicMacAddr,
+    #    'ip地址':routingIPAddr,
+    #    'Netmask 网络掩码':routingIPNetmask,	
+    #    'bytes_sent 发送字节数': psutil.net_io_counters(pernic=True)[routingNicName].bytes_sent,
+	#	'bytes_recv 接收字节数': psutil.net_io_counters(pernic=True)[routingNicName].bytes_recv,
+	#	'packets_sent 发送包个数': psutil.net_io_counters(pernic=True)[routingNicName].packets_sent,
+	#	'packets_recv 接收包个数': psutil.net_io_counters(pernic=True)[routingNicName].packets_recv,
+	#	'errout 发送数据包错误总数': psutil.net_io_counters(pernic=True)[routingNicName].errout,
+	#	'dropin 接收时丢弃的数据包的总数': psutil.net_io_counters(pernic=True)[routingNicName].dropin,
+    #};	
     
-    return jsonify({'network': network});
 	
 @app.route('/system/process', methods=['GET'])
 def get_process():
